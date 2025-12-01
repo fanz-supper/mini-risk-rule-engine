@@ -1,0 +1,62 @@
+[
+  {
+    "id": "R_LOGIN_001",
+    "description": "同一设备10分钟内登录账号数过多，疑似撞库",
+    "scene": "LOGIN",
+    "priority": 100,
+    "action": "REJECT",
+    "logicalOp": "AND",
+    "conditions": [
+      {
+        "field": "device.loginUserCountIn10Min",
+        "op": ">",
+        "value": "5"
+      }
+    ]
+  },
+  {
+    "id": "R_PAY_001",
+    "description": "新用户首单金额过高，且注册时间过短",
+    "scene": "PAY",
+    "priority": 90,
+    "action": "MANUAL_REVIEW",
+    "logicalOp": "AND",
+    "conditions": [
+      {
+        "field": "user.isNew",
+        "op": "==",
+        "value": "true"
+      },
+      {
+        "field": "user.historyOrderCount",
+        "op": "==",
+        "value": "0"
+      },
+      {
+        "field": "order.amount",
+        "op": ">",
+        "value": "1000"
+      },
+      {
+        "field": "user.registerMinutes",
+        "op": "<",
+        "value": "60"
+      }
+    ]
+  },
+  {
+    "id": "R_IP_001",
+    "description": "IP 命中黑名单",
+    "scene": "COMMON",
+    "priority": 200,
+    "action": "REJECT",
+    "logicalOp": "AND",
+    "conditions": [
+      {
+        "field": "ip.inBlacklist",
+        "op": "==",
+        "value": "true"
+      }
+    ]
+  }
+]

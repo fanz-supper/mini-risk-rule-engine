@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * v0.1 Demo：在内存中硬编码几条规则，跑一下看看引擎效果。
  */
-public class DemoApplication {
+public class DemoApplication0 {
 
     public static void main(String[] args) {
         // 1. 准备几条硬编码规则
