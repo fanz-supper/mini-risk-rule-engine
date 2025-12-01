@@ -8,18 +8,19 @@ import com.zhangyc.minirisk.model.RuleAction;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 import java.util.function.Predicate;
 
 /**
- * 从 JSON 配置文件加载规则，并转换为真正可执行的 Rule 列表。
+ * 从 JSON 配置文件加载规则，并转换为真正可执行的 Rule 列表，
+ * 同时缓存 RuleDefinition 以支持后续解释。
  */
 public class RuleConfigLoader {
 
-    //创建Jackson的ObjectMapper实例，用于JSON序列化/反序列化
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    /** ruleId -> RuleDefinition 的映射，用于解释层 */
+    private static final Map<String, RuleDefinition> RULE_DEFINITION_MAP = new HashMap<>();
 
     /**
      * 从 classpath（resources） 下加载 JSON 配置，并转换为 Rule 列表。
@@ -32,7 +33,7 @@ public class RuleConfigLoader {
                 throw new IllegalArgumentException("规则配置文件未找到: " + resourceName);
             }
 
-            // 1. 先解析为RuleDefinition列表
+            // 1. 先解析为 RuleDefinition 列表
             // MAPPER.readValue会自动识别传入的class里的字段，并把相应的字段赋值给对应的成员变量
             // TypeReference<List<RuleDefinition>>() 是解决泛型类型擦除，告诉list中的T是RuleDefinition
             List<RuleDefinition> defs = MAPPER.readValue(
@@ -40,7 +41,13 @@ public class RuleConfigLoader {
                     new TypeReference<List<RuleDefinition>>() {}
             );
 
-            // 2. 再把每个 RuleDefinition 转为真正的 Rule（带 Predicate<RiskContext>）
+            // 2. 缓存 RuleDefinition，方便后续解释使用
+            RULE_DEFINITION_MAP.clear();
+            for (RuleDefinition def : defs) {
+                RULE_DEFINITION_MAP.put(def.getId(), def);
+            }
+
+            // 3. 再把每个 RuleDefinition 转为真正的 Rule（带 Predicate<RiskContext>）
             List<Rule> rules = new ArrayList<>();
             for (RuleDefinition def : defs) {
                 Rule rule = convertToRule(def);
@@ -52,8 +59,15 @@ public class RuleConfigLoader {
         }
     }
 
+    /**
+     * 提供按 ruleId 获取 RuleDefinition 的方法，给解释引擎用。
+     */
+    public static RuleDefinition getRuleDefinitionById(String ruleId) {
+        return RULE_DEFINITION_MAP.get(ruleId);
+    }
+
     private static Rule convertToRule(RuleDefinition def) {
-        RuleAction action = RuleAction.valueOf(def.getAction().toUpperCase(Locale.ROOT));//String转为枚举
+        RuleAction action = RuleAction.valueOf(def.getAction().toUpperCase(Locale.ROOT));
         Predicate<RiskContext> condition = buildConditionPredicate(def);
         return new Rule(
                 def.getId(),
@@ -71,7 +85,7 @@ public class RuleConfigLoader {
     private static Predicate<RiskContext> buildConditionPredicate(RuleDefinition def) {
         List<ConditionDefinition> conds = def.getConditions();
         if (conds == null || conds.isEmpty()) {
-            // 没配置条件，则永远不命中（也可以设计成永远命中，看需求）
+            // 没配置条件，则永远不命中（也可以设计成永远命中，看你需求）
             return ctx -> false;
         }
 
@@ -108,6 +122,7 @@ public class RuleConfigLoader {
 
     /**
      * 单个条件：根据 field / op / value 构造一个基于 RiskContext 的谓词。
+     * 这里先用硬编码映射，后面可以用反射重构。
      */
     private static Predicate<RiskContext> buildSinglePredicate(ConditionDefinition c) {
         String field = c.getField();
@@ -139,7 +154,9 @@ public class RuleConfigLoader {
         }
     }
 
-    private static boolean compareInt(int actual, String op, int expected) {
+    /* 下面这三个比较方法，ExplainableRuleEngine 里也会用到，后续可以考虑提取为公共工具类 */
+
+    public static boolean compareInt(int actual, String op, int expected) {
         switch (op) {
             case ">":
                 return actual > expected;
@@ -158,7 +175,7 @@ public class RuleConfigLoader {
         }
     }
 
-    private static boolean compareDouble(double actual, String op, double expected) {
+    public static boolean compareDouble(double actual, String op, double expected) {
         switch (op) {
             case ">":
                 return actual > expected;
@@ -177,7 +194,7 @@ public class RuleConfigLoader {
         }
     }
 
-    private static boolean compareBoolean(boolean actual, String op, boolean expected) {
+    public static boolean compareBoolean(boolean actual, String op, boolean expected) {
         switch (op) {
             case "==":
                 return actual == expected;
