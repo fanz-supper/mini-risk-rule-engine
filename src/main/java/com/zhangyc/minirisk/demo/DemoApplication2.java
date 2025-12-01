@@ -1,26 +1,25 @@
 package com.zhangyc.minirisk.demo;
 
-import com.zhangyc.minirisk.config.RuleConfigLoader;
 import com.zhangyc.minirisk.engine.RuleEngine;
 import com.zhangyc.minirisk.engine.SimpleRuleEngine;
-import com.zhangyc.minirisk.model.DecisionResult;
-import com.zhangyc.minirisk.model.RiskContext;
-import com.zhangyc.minirisk.model.Rule;
-import com.zhangyc.minirisk.model.RuleAction;
+import com.zhangyc.minirisk.model.*;
+import com.zhangyc.minirisk.registry.RuleRegistry;
 
-import java.util.Arrays;
 import java.util.List;
 
 /**
- * v0.1 Demo: 将代码中硬编码的规则，改为json文件中读取规则。
+ * v0.2.1 Demo：按场景（PAY）从规则中心获取规则，执行风控决策。
  */
-public class DemoApplication1 {
+public class DemoApplication2 {
 
     public static void main(String[] args) {
-        // 1. 从配置文件里加载规则
-        List<Rule> rules = RuleConfigLoader.loadRulesFromClasspath("rules-demo.json");
+        // 1. 声明当前是支付场景
+        String scene = "PAY";
 
-        // 2. 构造一个「可疑首单」上下文
+        // 2. 从规则注册中心按场景取规则（PAY + COMMON）
+        List<Rule> rules = RuleRegistry.getRulesForScene(scene);
+
+        // 3. 构造一个「可疑首单」上下文（和之前一样）
         RiskContext ctx = new RiskContext()
                 .setUserId("U123")
                 .setNewUser(true)
@@ -33,17 +32,21 @@ public class DemoApplication1 {
                 .setIp("9.9.9.9")
                 .setIpInBlacklist(true);
 
-        // 3. 调用引擎
+        // 4. 调用引擎
         RuleEngine engine = new SimpleRuleEngine();
         DecisionResult result = engine.evaluate(ctx, rules);
 
+        System.out.println("Scene: " + scene);
         System.out.println("Context: " + ctx);
         System.out.println("Decision: " + result.getFinalAction());
         System.out.println("Matched rules:");
         result.getMatchedRules().forEach(rule ->
                 System.out.println("  - " + rule.getId() + " | " + rule.getDescription() +
                         " | action=" + rule.getAction() +
-                        " | priority=" + rule.getPriority()));
+                        " | priority=" + rule.getPriority() +
+                        " | scene=" + rule.getScene())
+        );
     }
 }
+
 

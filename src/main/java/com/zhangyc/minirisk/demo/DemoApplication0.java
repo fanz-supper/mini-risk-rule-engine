@@ -8,7 +8,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * v0.1 Demo：在内存中硬编码几条规则，跑一下看看引擎效果。
+ * v0.0 Demo：在内存中硬编码几条规则，跑一下看看引擎效果。
  */
 public class DemoApplication0 {
 
