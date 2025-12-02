@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- 日志目录，可以是相对路径（相对项目运行目录） -->
+    <property name="LOG_HOME" value="logs"/>
+
+    <!-- 控制台输出（开发时方便看） -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>
+                [%d{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] %-5level %logger{36} - %msg%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <!-- 按天滚动的文件输出 -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!-- 当前正在写入的日志文件 -->
+        <file>${LOG_HOME}/mini-risk-rule-engine.log</file>
+
+        <!-- 按时间滚动策略：每天一个新文件 -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- 历史日志文件名：按日期命名 -->
+            <fileNamePattern>${LOG_HOME}/mini-risk-rule-engine.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <!-- 保留最近 7 天的日志，按需调整 -->
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>
+                [%d{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] %-5level %logger{36} - %msg%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <!-- 根日志配置：默认 INFO 级别，同时输出到控制台 + 文件 -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="FILE" />
+    </root>
+
+</configuration>
