@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhangyc.minirisk.model.RiskContext;
 import com.zhangyc.minirisk.model.Rule;
 import com.zhangyc.minirisk.model.RuleAction;
+import com.zhangyc.minirisk.support.RiskFieldAccessor;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -122,86 +123,76 @@ public class RuleConfigLoader {
 
     /**
      * 单个条件：根据 field / op / value 构造一个基于 RiskContext 的谓词。
-     * 这里先用硬编码映射，后面可以用反射重构。
+     * 统一走 evaluateCondition + RiskFieldAccessor，不再写死字段映射。
      */
     private static Predicate<RiskContext> buildSinglePredicate(ConditionDefinition c) {
-        String field = c.getField();
+        return ctx -> evaluateCondition(ctx, c);
+    }
+
+    /**
+     * 根据 ConditionDefinition 和上下文，执行单个条件判断。
+     * 使用 RiskFieldAccessor 动态读取字段值，并做类型感知的比较。
+     */
+    public static boolean evaluateCondition(RiskContext ctx, ConditionDefinition c) {
+        Object actual = RiskFieldAccessor.getFieldValue(ctx, c.getField());
         String op = c.getOp();
-        String value = c.getValue();
+        String expectedStr = c.getValue();
 
-        switch (field) {
-            case "device.loginUserCountIn10Min":
-                int thresholdLogin = Integer.parseInt(value);
-                return ctx -> compareInt(ctx.getDeviceLoginUserCountIn10Min(), op, thresholdLogin);
-            case "user.isNew":
-                boolean expectNew = Boolean.parseBoolean(value);
-                return ctx -> compareBoolean(ctx.isNewUser(), op, expectNew);
-            case "user.historyOrderCount":
-                int history = Integer.parseInt(value);
-                return ctx -> compareInt(ctx.getHistoryOrderCount(), op, history);
-            case "order.amount":
-                double amount = Double.parseDouble(value);
-                return ctx -> compareDouble(ctx.getOrderAmount(), op, amount);
-            case "user.registerMinutes":
-                int minutes = Integer.parseInt(value);
-                return ctx -> compareInt(ctx.getRegisterMinutes(), op, minutes);
-            case "ip.inBlacklist":
-                boolean inBlack = Boolean.parseBoolean(value);
-                return ctx -> compareBoolean(ctx.isIpInBlacklist(), op, inBlack);
-            default:
-                // 未知字段：永远不命中，或者你也可以选择抛异常
-                return ctx -> false;
-        }
+        return compareValue(actual, op, expectedStr);
     }
 
-    /* 下面这三个比较方法，ExplainableRuleEngine 里也会用到，后续可以考虑提取为公共工具类 */
-
-    public static boolean compareInt(int actual, String op, int expected) {
-        switch (op) {
-            case ">":
-                return actual > expected;
-            case ">=":
-                return actual >= expected;
-            case "<":
-                return actual < expected;
-            case "<=":
-                return actual <= expected;
-            case "==":
-                return actual == expected;
-            case "!=":
-                return actual != expected;
-            default:
-                return false;
+    /**
+     * 通用比较逻辑：
+     * - 如果 actual 是 Number，按 double 比较
+     * - 如果 actual 是 Boolean，按 boolean 比较
+     * - 其他类型当作字符串比较（只支持 == / !=）
+     */
+    public static boolean compareValue(Object actual, String op, String expectedStr) {
+        if (actual == null) {
+            return false;
         }
-    }
 
-    public static boolean compareDouble(double actual, String op, double expected) {
-        switch (op) {
-            case ">":
-                return actual > expected;
-            case ">=":
-                return actual >= expected;
-            case "<":
-                return actual < expected;
-            case "<=":
-                return actual <= expected;
-            case "==":
-                return Double.compare(actual, expected) == 0;
-            case "!=":
-                return Double.compare(actual, expected) != 0;
-            default:
-                return false;
-        }
-    }
-
-    public static boolean compareBoolean(boolean actual, String op, boolean expected) {
-        switch (op) {
-            case "==":
-                return actual == expected;
-            case "!=":
-                return actual != expected;
-            default:
-                return false;
+        if (actual instanceof Number) {
+            double actualD = ((Number) actual).doubleValue();
+            double expectedD = Double.parseDouble(expectedStr);
+            switch (op) {
+                case ">":
+                    return actualD > expectedD;
+                case ">=":
+                    return actualD >= expectedD;
+                case "<":
+                    return actualD < expectedD;
+                case "<=":
+                    return actualD <= expectedD;
+                case "==":
+                    return Double.compare(actualD, expectedD) == 0;
+                case "!=":
+                    return Double.compare(actualD, expectedD) != 0;
+                default:
+                    return false;
+            }
+        } else if (actual instanceof Boolean) {
+            boolean actualB = (Boolean) actual;
+            boolean expectedB = Boolean.parseBoolean(expectedStr);
+            switch (op) {
+                case "==":
+                    return actualB == expectedB;
+                case "!=":
+                    return actualB != expectedB;
+                default:
+                    return false;
+            }
+        } else {
+            // 其他当成字符串
+            String actualS = String.valueOf(actual);
+            switch (op) {
+                case "==":
+                    return actualS.equals(expectedStr);
+                case "!=":
+                    return !actualS.equals(expectedStr);
+                default:
+                    return false;
+            }
         }
     }
 }

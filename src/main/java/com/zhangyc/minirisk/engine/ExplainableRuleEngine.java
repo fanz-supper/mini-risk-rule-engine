@@ -4,13 +4,15 @@ import com.zhangyc.minirisk.config.ConditionDefinition;
 import com.zhangyc.minirisk.config.RuleConfigLoader;
 import com.zhangyc.minirisk.config.RuleDefinition;
 import com.zhangyc.minirisk.model.*;
+import com.zhangyc.minirisk.support.RiskFieldAccessor;
+import com.zhangyc.minirisk.config.ConditionDefinition;
+
+import static com.zhangyc.minirisk.config.RuleConfigLoader.compareValue;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-
-import static com.zhangyc.minirisk.config.RuleConfigLoader.*;
 
 /**
  * 带「解释能力」的规则引擎：
@@ -89,67 +91,30 @@ public class ExplainableRuleEngine implements RuleEngine {
 
     /**
      * 对单个 Condition 做评估，生成 ConditionMatch：
-     * - 取出实际值 actualValue
-     * - 使用 op 和 expectedValue 做比较
+     * - 通过 RiskFieldAccessor 取出实际值 actualValue
+     * - 使用 RuleConfigLoader.compareValue 做比较
      */
     private ConditionMatch evaluateSingleCondition(RiskContext ctx, ConditionDefinition c) {
         String field = c.getField();
         String op = c.getOp();
         String expected = c.getValue();
 
+        Object actualObj;
         String actualStr;
         boolean matched;
 
-        switch (field) {
-            case "device.loginUserCountIn10Min": {
-                int actual = ctx.getDeviceLoginUserCountIn10Min();
-                int expectedInt = Integer.parseInt(expected);
-                matched = compareInt(actual, op, expectedInt);
-                actualStr = String.valueOf(actual);
-                break;
-            }
-            case "user.isNew": {
-                boolean actual = ctx.isNewUser();
-                boolean expectedBool = Boolean.parseBoolean(expected);
-                matched = compareBoolean(actual, op, expectedBool);
-                actualStr = String.valueOf(actual);
-                break;
-            }
-            case "user.historyOrderCount": {
-                int actual = ctx.getHistoryOrderCount();
-                int expectedInt = Integer.parseInt(expected);
-                matched = compareInt(actual, op, expectedInt);
-                actualStr = String.valueOf(actual);
-                break;
-            }
-            case "order.amount": {
-                double actual = ctx.getOrderAmount();
-                double expectedDouble = Double.parseDouble(expected);
-                matched = compareDouble(actual, op, expectedDouble);
-                actualStr = String.valueOf(actual);
-                break;
-            }
-            case "user.registerMinutes": {
-                int actual = ctx.getRegisterMinutes();
-                int expectedInt = Integer.parseInt(expected);
-                matched = compareInt(actual, op, expectedInt);
-                actualStr = String.valueOf(actual);
-                break;
-            }
-            case "ip.inBlacklist": {
-                boolean actual = ctx.isIpInBlacklist();
-                boolean expectedBool = Boolean.parseBoolean(expected);
-                matched = compareBoolean(actual, op, expectedBool);
-                actualStr = String.valueOf(actual);
-                break;
-            }
-            default: {
-                // 未知字段：当作不匹配
-                actualStr = "<unknown-field>";
-                matched = false;
-                break;
-            }
+        try {
+            actualObj = RiskFieldAccessor.getFieldValue(ctx, field);
+            actualStr = String.valueOf(actualObj);
+        } catch (Exception e) {
+            // 取值异常，当作不命中，并标记 actual 为错误信息
+            actualObj = null;
+            actualStr = "<error: " + e.getClass().getSimpleName() + ">";
+            matched = false;
+            return new ConditionMatch(field, op, expected, actualStr, matched);
         }
+
+        matched = compareValue(actualObj, op, expected);
 
         return new ConditionMatch(field, op, expected, actualStr, matched);
     }
