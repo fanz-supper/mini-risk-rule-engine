@@ -1,5 +1,7 @@
 package com.zhangyc.minirisk.model;
 
+import com.zhangyc.minirisk.support.RiskField;
+
 import java.util.Objects;
 
 /**
@@ -34,6 +36,7 @@ public class RiskContext {
         return this;
     }
 
+    @RiskField("user.isNew")
     public boolean isNewUser() {
         return newUser;
     }
@@ -43,6 +46,7 @@ public class RiskContext {
         return this;
     }
 
+    @RiskField("user.registerMinutes")
     public int getRegisterMinutes() {
         return registerMinutes;
     }
@@ -52,6 +56,7 @@ public class RiskContext {
         return this;
     }
 
+    @RiskField("user.historyOrderCount")
     public int getHistoryOrderCount() {
         return historyOrderCount;
     }
@@ -61,6 +66,7 @@ public class RiskContext {
         return this;
     }
 
+    @RiskField("order.id")
     public String getOrderId() {
         return orderId;
     }
@@ -70,6 +76,7 @@ public class RiskContext {
         return this;
     }
 
+    @RiskField("order.amount")
     public double getOrderAmount() {
         return orderAmount;
     }
@@ -79,6 +86,7 @@ public class RiskContext {
         return this;
     }
 
+    @RiskField("device.id")
     public String getDeviceId() {
         return deviceId;
     }
@@ -88,6 +96,7 @@ public class RiskContext {
         return this;
     }
 
+    @RiskField("device.loginUserCountIn10Min")
     public int getDeviceLoginUserCountIn10Min() {
         return deviceLoginUserCountIn10Min;
     }
@@ -97,6 +106,7 @@ public class RiskContext {
         return this;
     }
 
+    @RiskField("ip.value")
     public String getIp() {
         return ip;
     }
@@ -106,6 +116,7 @@ public class RiskContext {
         return this;
     }
 
+    @RiskField("ip.inBlacklist")
     public boolean isIpInBlacklist() {
         return ipInBlacklist;
     }
